@@ -20,8 +20,6 @@ DATA = json.loads(DATA_FILE.read_text(encoding="utf-8"))["games"]
 dp = Dispatcher()
 
 
-# ---------- Клавиатуры ----------
-
 def games_kb() -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     for key, game in DATA.items():
