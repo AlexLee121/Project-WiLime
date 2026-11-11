@@ -8,6 +8,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, F
+from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandStart
@@ -33,8 +34,45 @@ TOKEN = os.getenv("BOT_TOKEN")
 # Загружаем игровые данные из data.json
 DATA_FILE = Path(__file__).with_name("data.json")
 
-with DATA_FILE.open("r", encoding="utf-8") as file:
-    DATA = json.load(file)["games"]
+def load_data(path: Path) -> dict:
+    try:
+        with path.open("r", encoding="utf-8") as file:
+            games = json.load(file)["games"]
+        if not isinstance(games, dict) or not games:
+            raise ValueError("games должен быть непустым объектом")
+        for game_key, game in games.items():
+            if not isinstance(game_key, str) or not game_key or ":" in game_key:
+                raise ValueError("неверный ключ игры")
+            for field in ("title", "emoji"):
+                if not isinstance(game[field], str) or not game[field].strip():
+                    raise ValueError(f"{game_key}: неверное поле {field}")
+            for category, prefix in (("characters", "char"), ("maps", "map")):
+                items = game[category]
+                if not isinstance(items, dict):
+                    raise ValueError(f"{game_key}: {category} должен быть объектом")
+                for key, item in items.items():
+                    if not isinstance(key, str) or not key or ":" in key or len(f"{prefix}:{game_key}:{key}".encode()) > 64:
+                        raise ValueError(f"{game_key}: неверный или слишком длинный ключ {key}")
+                    fields = ("name", "role", "team") if category == "characters" else ("name", "tips")
+                    if any(not isinstance(item[field], str) or not item[field].strip() for field in fields):
+                        raise ValueError(f"{game_key}/{key}: пустое текстовое поле")
+                    lists = ("weapon", "leveling") if category == "characters" else ("steps",)
+                    if any(not isinstance(item[field], list) or not item[field] or any(not isinstance(x, str) for x in item[field]) for field in lists):
+                        raise ValueError(f"{game_key}/{key}: неверный список")
+                    if category == "characters":
+                        art = item["artifacts"]
+                        if any(not isinstance(art[field], str) or not art[field].strip() for field in ("set", "main_stats", "substats")):
+                            raise ValueError(f"{game_key}/{key}: неверные артефакты")
+                    if len(item["name"]) > 100:
+                        raise ValueError(f"{game_key}/{key}: название кнопки слишком длинное")
+            if len(f"chars:{game_key}".encode()) > 64 or len(f"maps:{game_key}".encode()) > 64 or len(game["title"]) > 90:
+                raise ValueError(f"{game_key}: ключ или название слишком длинные")
+        return games
+    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+        raise SystemExit(f"Ошибка в {path}: {exc}") from exc
+
+
+DATA = load_data(DATA_FILE)
 
 # Создаём диспетчер бота
 dp = Dispatcher()
@@ -226,7 +264,10 @@ async def game_menu(call: CallbackQuery) -> None:
 
 @dp.callback_query(F.data.startswith("chars:"))
 async def chars_list(call: CallbackQuery) -> None:
-    game = call.data.split(":")[1]
+    game = call.data.split(":", 1)[1]
+    if game not in DATA:
+        await call.answer("Игра больше недоступна. Откройте /start", show_alert=True)
+        return
 
     await call.message.edit_text(
         "Выбери персонажа:",
@@ -238,10 +279,17 @@ async def chars_list(call: CallbackQuery) -> None:
 
 @dp.callback_query(F.data.startswith("char:"))
 async def char_card(call: CallbackQuery) -> None:
-    _, game, key = call.data.split(":")
-
+    parts = call.data.split(":")
+    if len(parts) != 3 or parts[1] not in DATA or parts[2] not in DATA[parts[1]]["characters"]:
+        await call.answer("Персонаж больше недоступен. Откройте /start", show_alert=True)
+        return
+    _, game, key = parts
+    text = character_text(game, key)
+    if len(text) > 4096:
+        await call.answer("Карточка слишком длинная. Сообщите администратору.", show_alert=True)
+        return
     await call.message.edit_text(
-        character_text(game, key),
+        text,
         reply_markup=back_kb(f"chars:{game}")
     )
 
@@ -250,7 +298,10 @@ async def char_card(call: CallbackQuery) -> None:
 
 @dp.callback_query(F.data.startswith("maps:"))
 async def maps_list(call: CallbackQuery) -> None:
-    game = call.data.split(":")[1]
+    game = call.data.split(":", 1)[1]
+    if game not in DATA:
+        await call.answer("Игра больше недоступна. Откройте /start", show_alert=True)
+        return
 
     await call.message.edit_text(
         "Выбери регион:",
@@ -262,10 +313,17 @@ async def maps_list(call: CallbackQuery) -> None:
 
 @dp.callback_query(F.data.startswith("map:"))
 async def map_card(call: CallbackQuery) -> None:
-    _, game, key = call.data.split(":")
-
+    parts = call.data.split(":")
+    if len(parts) != 3 or parts[1] not in DATA or parts[2] not in DATA[parts[1]]["maps"]:
+        await call.answer("Регион больше недоступен. Откройте /start", show_alert=True)
+        return
+    _, game, key = parts
+    text = map_text(game, key)
+    if len(text) > 4096:
+        await call.answer("Карточка слишком длинная. Сообщите администратору.", show_alert=True)
+        return
     await call.message.edit_text(
-        map_text(game, key),
+        text,
         reply_markup=back_kb(f"maps:{game}")
     )
 
@@ -281,18 +339,21 @@ async def main() -> None:
             "Ошибка: укажите BOT_TOKEN в файле .env"
         )
 
+    proxy = os.getenv("TELEGRAM_PROXY") or None
+    session = AiohttpSession(proxy=proxy, timeout=45)
     bot = Bot(
         token=TOKEN,
+        session=session,
         default=DefaultBotProperties(
             parse_mode=ParseMode.HTML
         )
     )
 
-    print("Bot is running...")
-
-    await dp.start_polling(bot)
+    logging.info("Запуск бота; прокси %s", "включён" if proxy else "не настроен")
+    await dp.start_polling(bot, polling_timeout=25)
 
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
