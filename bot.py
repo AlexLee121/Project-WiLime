@@ -11,6 +11,7 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.exceptions import TelegramNetworkError
 from aiogram.filters import Command, CommandStart
 from aiogram.types import (
     CallbackQuery,
@@ -68,7 +69,7 @@ def load_data(path: Path) -> dict:
             if len(f"chars:{game_key}".encode()) > 64 or len(f"maps:{game_key}".encode()) > 64 or len(game["title"]) > 90:
                 raise ValueError(f"{game_key}: ключ или название слишком длинные")
         return games
-    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+    except (OSError, UnicodeError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
         raise SystemExit(f"Ошибка в {path}: {exc}") from exc
 
 
@@ -350,7 +351,24 @@ async def main() -> None:
     )
 
     logging.info("Запуск бота; прокси %s", "включён" if proxy else "не настроен")
-    await dp.start_polling(bot, polling_timeout=25)
+    try:
+        await wait_for_telegram(bot)
+        await dp.start_polling(bot, polling_timeout=25, close_bot_session=False)
+    finally:
+        await bot.session.close()
+
+
+async def wait_for_telegram(bot: Bot) -> None:
+    # aiogram вызывает getMe до начала собственных повторных попыток polling.
+    delay = 1
+    while True:
+        try:
+            await bot.me()
+            return
+        except TelegramNetworkError:
+            logging.warning("Telegram API недоступен; повтор через %s сек.", delay)
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, 60)
 
 
 if __name__ == "__main__":
