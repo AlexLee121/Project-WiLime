@@ -1,53 +1,55 @@
-# Wiki Telegram-бот по играм
+# Game Wiki Telegram Bot
 
-Игры: Genshin Impact, Honkai: Star Rail, Zenless Zone Zero.
-В каждой игре два раздела: сборка и прокачка персонажей, чистка карты.
+Games: Genshin Impact, Honkai: Star Rail, and Zenless Zone Zero.
+Each game has two sections: character builds and progression, and map exploration and completion.
 
-## Запуск в Windows через VS Code
+## Running on Windows with VS Code
 
-1. Установите Python и откройте папку проекта в VS Code: **Файл → Открыть папку**.
-2. Откройте терминал (**Терминал → Создать терминал**) и выберите PowerShell. Если открыта другая папка, перейдите в папку проекта, например `cd "C:\Users\Имя\Project-WiLime"`.
-3. Установите зависимости и проверьте, что установлен Python 3.10 или новее:
+1. Install Python and open the project folder in VS Code: **File → Open Folder**.
+2. Open the terminal (**Terminal → New Terminal**) and select PowerShell. If the terminal is in a different directory, navigate to the project folder, for example: `cd "C:\Users\YourName\Project-WiLime"`.
+3. Install the dependencies and check that Python 3.10 or newer is installed:
 
    ```powershell
    py --version
    py -m pip install -r requirements.txt
    ```
 
-4. Создайте бота у @BotFather. В этом же терминале укажите токен и запустите бота:
+4. Create a bot using @BotFather. In the same terminal, set your token and start the bot:
 
    ```powershell
-   $env:BOT_TOKEN="ваш_токен"
+   $env:BOT_TOKEN="your_token"
    py bot.py
    ```
 
-   Оставьте терминал открытым. После остановки запустите команды из пункта 4 снова. Если `py` не найден, попробуйте `python --version` и используйте `python` вместо `py` в обеих командах. Для остановки нажмите Ctrl+C.
+   Keep the terminal open while the bot is running. After stopping it, run the commands in step 4 again. If `py` is not recognised, try `python --version` and use `python` instead of `py` in both commands. Press Ctrl+C to stop the bot.
 
-Для Linux/macOS: `python3 -m pip install -r requirements.txt`, затем `BOT_TOKEN='ваш_токен' python3 bot.py`.
+For Linux/macOS: run `python3 -m pip install -r requirements.txt`, then `BOT_TOKEN='your_token' python3 bot.py`.
 
-## Как добавить игру, персонажа или регион
+## Adding a Game, Character, or Region
 
-Всё содержимое лежит в `data.json`. Код менять не нужно:
-- новый персонаж — добавьте объект в `characters` нужной игры;
-- новый регион — добавьте объект в `maps`;
-- новая игра — добавьте ключ в `games` с полями `title`, `emoji`, `characters`, `maps`.
+All content is stored in `data.json`, so you do not need to modify the Python code:
 
-## Подключение к Telegram
+- **New character:** add an entry under `characters` for the appropriate game.
+- **New region:** add an entry under `maps`.
+- **New game:** add a key under `games` with the fields `title`, `emoji`, `characters`, and `maps`.
 
-Для работы API необходим доступ к `api.telegram.org` с компьютера или сервера, где запущен бот. Если прямое соединение недоступно, можно запустить бота на сервере с доступом к Telegram или указать собственный HTTP/SOCKS5-прокси в файле `.env` рядом с `bot.py`:
+## Connecting to Telegram
+
+The bot requires access to `api.telegram.org` from the computer or server where it runs. If a direct connection is unavailable, you can run the bot on a server that can reach Telegram or configure your own HTTP/SOCKS5 proxy in a `.env` file next to `bot.py`:
 
 ```dotenv
-BOT_TOKEN=ваш_токен
+BOT_TOKEN=your_token
 TELEGRAM_PROXY=socks5://user:password@proxy.example:1080
 ```
 
-Замените адрес и учётные данные на реальные данные вашего провайдера. При прямом подключении переменную `TELEGRAM_PROXY` можно не указывать. Файл `.env` не следует публиковать. Бот автоматически повторяет попытки подключения при сетевых ошибках; работоспособность зависит от доступности сервера или прокси. Возможные ограничения подключения пользователей к Telegram эта настройка не устраняет. Для обычной работы запускайте только один экземпляр бота на токен.
+Replace the sample proxy address and credentials with the actual details provided by your proxy provider. If the direct connection works, you can omit `TELEGRAM_PROXY`. Never publish your `.env` file.
 
-Игровые данные — черновые рекомендации: сверяйте сборки с актуальной версией игры и надёжными источниками.
+The bot automatically retries connections after network errors, but it still requires a reachable Telegram server or proxy. These settings do not resolve any restrictions that users themselves may face when accessing Telegram. Normally, run only one instance of the bot per token.
 
-## Проверка
+The game data contains draft recommendations. Check character builds against the current game version and reliable sources.
+
+## Tests
 
 ```bash
 python -m unittest discover -s tests -v
 ```
-
