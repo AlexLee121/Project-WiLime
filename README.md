@@ -3,13 +3,27 @@
 Игры: Genshin Impact, Honkai: Star Rail, Zenless Zone Zero.
 В каждой игре два раздела: сборка и прокачка персонажей, чистка карты.
 
-## Запуск
+## Запуск в Windows через VS Code
 
-1. Создайте бота у @BotFather и получите токен.
-2. Установите зависимости: `pip install -r requirements.txt`
-3. Задайте токен и запустите:
-   - Linux/macOS: `BOT_TOKEN=ваш_токен python bot.py`
-   - Windows (PowerShell): `$env:BOT_TOKEN="ваш_токен"; python bot.py`
+1. Установите Python и откройте папку проекта в VS Code: **Файл → Открыть папку**.
+2. Откройте терминал (**Терминал → Создать терминал**) и выберите PowerShell. Если открыта другая папка, перейдите в папку проекта, например `cd "C:\Users\Имя\Project-WiLime"`.
+3. Установите зависимости и проверьте, что установлен Python 3.10 или новее:
+
+   ```powershell
+   py --version
+   py -m pip install -r requirements.txt
+   ```
+
+4. Создайте бота у @BotFather. В этом же терминале укажите токен и запустите бота:
+
+   ```powershell
+   $env:BOT_TOKEN="ваш_токен"
+   py bot.py
+   ```
+
+   Оставьте терминал открытым. После остановки запустите команды из пункта 4 снова. Если `py` не найден, попробуйте `python --version` и используйте `python` вместо `py` в обеих командах. Для остановки нажмите Ctrl+C.
+
+Для Linux/macOS: `python3 -m pip install -r requirements.txt`, затем `BOT_TOKEN='ваш_токен' python3 bot.py`.
 
 ## Как добавить игру, персонажа или регион
 
@@ -36,3 +50,4 @@ TELEGRAM_PROXY=socks5://user:password@proxy.example:1080
 ```bash
 python -m unittest discover -s tests -v
 ```
+

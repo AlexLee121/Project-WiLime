@@ -5,8 +5,8 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
-from aiogram.exceptions import TelegramNetworkError, TelegramUnauthorizedError
-from aiogram.methods import GetMe
+from aiogram.exceptions import TelegramNetworkError, TelegramUnauthorizedError, TelegramBadRequest
+from aiogram.methods import GetMe, EditMessageText
 
 import bot
 
@@ -65,6 +65,20 @@ class BotTests(unittest.TestCase):
                 sleep.assert_not_awaited()
         asyncio.run(run())
 
+    def test_repeated_click_and_other_bad_requests(self):
+        async def run():
+            for description, suppressed in [("message is not modified", True), ("message to edit not found", False)]:
+                error = TelegramBadRequest(method=EditMessageText(text="test"), message=description)
+                call = SimpleNamespace(answer=AsyncMock(), message=SimpleNamespace(edit_text=AsyncMock(side_effect=error)))
+                if suppressed:
+                    await bot.home(call)
+                    call.answer.assert_awaited_once()
+                else:
+                    with self.assertRaises(TelegramBadRequest):
+                        await bot.home(call)
+                    call.answer.assert_not_awaited()
+        asyncio.run(run())
+
     def test_overlong_callback_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'data.json'
@@ -76,3 +90,4 @@ class BotTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

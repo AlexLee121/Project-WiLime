@@ -11,7 +11,7 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.exceptions import TelegramNetworkError
+from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError
 from aiogram.filters import Command, CommandStart
 from aiogram.types import (
     CallbackQuery,
@@ -232,14 +232,21 @@ async def help_cmd(message: Message) -> None:
 
 # ---------- Обработка кнопок ----------
 
+async def edit_menu(call: CallbackQuery, text: str, reply_markup: InlineKeyboardMarkup) -> None:
+    try:
+        await call.message.edit_text(text, reply_markup=reply_markup)
+    except TelegramBadRequest as exc:
+        # A fast double tap can attempt to set the same text and keyboard again.
+        if "message is not modified" not in str(exc).lower():
+            raise
+    await call.answer()
+
 @dp.callback_query(F.data == "home")
 async def home(call: CallbackQuery) -> None:
-    await call.message.edit_text(
+    await edit_menu(call,
         "Выбери игру:",
         reply_markup=games_kb()
     )
-
-    await call.answer()
 
 
 @dp.callback_query(F.data.startswith("game:"))
@@ -255,12 +262,10 @@ async def game_menu(call: CallbackQuery) -> None:
 
     title = DATA[game]["title"]
 
-    await call.message.edit_text(
+    await edit_menu(call,
         f"<b>{escape(title)}</b>\nВыбери раздел:",
         reply_markup=game_menu_kb(game)
     )
-
-    await call.answer()
 
 
 @dp.callback_query(F.data.startswith("chars:"))
@@ -270,12 +275,10 @@ async def chars_list(call: CallbackQuery) -> None:
         await call.answer("Игра больше недоступна. Откройте /start", show_alert=True)
         return
 
-    await call.message.edit_text(
+    await edit_menu(call,
         "Выбери персонажа:",
         reply_markup=chars_kb(game)
     )
-
-    await call.answer()
 
 
 @dp.callback_query(F.data.startswith("char:"))
@@ -289,12 +292,10 @@ async def char_card(call: CallbackQuery) -> None:
     if len(text) > 4096:
         await call.answer("Карточка слишком длинная. Сообщите администратору.", show_alert=True)
         return
-    await call.message.edit_text(
+    await edit_menu(call,
         text,
         reply_markup=back_kb(f"chars:{game}")
     )
-
-    await call.answer()
 
 
 @dp.callback_query(F.data.startswith("maps:"))
@@ -304,12 +305,10 @@ async def maps_list(call: CallbackQuery) -> None:
         await call.answer("Игра больше недоступна. Откройте /start", show_alert=True)
         return
 
-    await call.message.edit_text(
+    await edit_menu(call,
         "Выбери регион:",
         reply_markup=maps_kb(game)
     )
-
-    await call.answer()
 
 
 @dp.callback_query(F.data.startswith("map:"))
@@ -323,12 +322,10 @@ async def map_card(call: CallbackQuery) -> None:
     if len(text) > 4096:
         await call.answer("Карточка слишком длинная. Сообщите администратору.", show_alert=True)
         return
-    await call.message.edit_text(
+    await edit_menu(call,
         text,
         reply_markup=back_kb(f"maps:{game}")
     )
-
-    await call.answer()
 
 
 # ---------- Запуск бота ----------
@@ -373,5 +370,6 @@ async def wait_for_telegram(bot: Bot) -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
